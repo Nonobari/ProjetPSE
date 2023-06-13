@@ -1,20 +1,15 @@
-//#include "words.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <string.h>
+#include "words.h"
 
 
-char *get_word(int ligne);
 
-int main() {
+void generate_sentence(char sentence[]) {
 
     FILE *file = fopen("liste_francais.txt", "r");
     if (file == NULL) {
         printf("Impossible d'ouvrir le fichier liste_francais.txt\n");
         exit(1);
     }
-    char sentence[1000];
+    
     char new_word[20];
     
     // Initialisation du générateur de nombres aléatoires
@@ -28,9 +23,8 @@ int main() {
     }
     
     printf("phrase :\n%s",sentence);
-    
-    return 0;
-}
+    }
+
 
 char *get_word(int ligne)
 /*retourne le mot de la ligne ligne du fichier texte file */

@@ -1,12 +1,17 @@
 #include "pse.h"
-#include "words.h"
+
 
 #define    CMD      "serveur"
+
+char phrase[2000][LIGNE_MAX];
 
 void *sessionClient(void *arg);
 void remiseAZeroJournal(void);
 
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t condition = PTHREAD_COND_INITIALIZER;
 int fdJournal;
+int clients_prets = 0;
 
 int main(int argc, char *argv[]) {
   short port;
@@ -40,10 +45,11 @@ int main(int argc, char *argv[]) {
     erreur_IO("bind");
   
   printf("%s: listening to socket\n", CMD);
-  ret = listen (ecoute, 5);
+  ret = listen (ecoute, 5); /*liste d'attente de 5*/
   if (ret < 0)
     erreur_IO("listen");
   
+  /*Boucle d'écoute du serveur*/
   while (VRAI) {
     printf("%s: accepting a connection\n", CMD);
     canal = accept(ecoute, (struct sockaddr *)&adrClient, &lgAdrClient);
@@ -57,8 +63,9 @@ int main(int argc, char *argv[]) {
     if (dataThread == NULL)
       erreur_IO("ajouter data thread");
 
-    dataThread->spec.canal = canal;
-    ret = pthread_create(&dataThread->spec.id, NULL, sessionClient,
+    dataThread->spec.canal = canal; /*on spécifie le canal pour le nouveau thread*/
+    
+    ret = pthread_create(&dataThread->spec.id, NULL, sessionClient, /*on crée le thread avec la fonction sessionClient */
                           &dataThread->spec);
     if (ret != 0)
       erreur_IO("creation thread");
@@ -81,19 +88,47 @@ void *sessionClient(void *arg) {
   int fin = FAUX;
   char ligne[LIGNE_MAX];
   int lgLue;
+  char phrase[2000];
+
 
   canal = dataTh->canal;
+  printf("%s: connexion client\n",CMD);
+  ecrireLigne(canal, "serveur: Etes-vous prêts ? o/n\n");
+  lgLue = lireLigne(canal, ligne);
+  if (strcmp(ligne, "o") == 0)
+    {
+      /*set client state to ready*/
+      dataTh->ready = VRAI;
+      printf("Client %ld is ready\n", dataTh->id);
+      pthread_mutex_lock(&mutex);
+      clients_prets++;
+      printf("Sending start to client %ld\n", dataTh->id);
+      ecrireLigne(canal, "start");
+      pthread_cond_signal(&condition);
+      pthread_mutex_unlock(&mutex);
+      
+    }
+
+  else {
+    /*set client state to not ready*/
+    dataTh->ready = FAUX;
+    printf("Client %ld is not ready\n", dataTh->id);
+  }
+    generate_sentence(phrase);
+    printf("Phrase générée : %s\n", phrase);
+  /*on attend que les deux clients soient prêts*/
+    pthread_mutex_lock(&mutex);
+    while (clients_prets < 2) {
+        pthread_cond_wait(&condition, &mutex);
+    }
+    pthread_mutex_unlock(&mutex);
+    /*on envoie la phrase au client*/
+
 
   while (!fin) {
-    lgLue = lireLigne(canal, ligne);
-    if (lgLue < 0)
-      erreur_IO("lireLigne");
-    else if (lgLue == 0)
-      erreur("interruption client\n");
+    
 
-    printf("%s: reception %d octets : \"%s\"\n", CMD, lgLue, ligne);
-
-    if (strcmp(ligne, "fin") == 0) {
+    /*if (strcmp(ligne, "fin") == 0) {
         printf("%s: fin client\n", CMD);
         fin = VRAI;
     }
@@ -111,8 +146,7 @@ void *sessionClient(void *arg) {
       printf("ligne> ");
       if (fgets(ligne, LIGNE_MAX, stdin) == NULL)
       erreur("saisie fin de fichier\n");
-
-
+*/
 
   }
 
