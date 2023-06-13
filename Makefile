@@ -1,12 +1,10 @@
-# TP6 : Fichier Makefile
-#
-include PSE/Makefile.inc
+include Makefile.inc
 
 EXE = serveur client
 
-${EXE): ${PSE}
-
 all: ${EXE}
+
+${EXE): ${PSE_LIB}
 
 clean:
 	rm -f *.o *~ ${EXE} journal.log

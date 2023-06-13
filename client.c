@@ -1,4 +1,4 @@
-#include "PSE/include/pse.h"
+#include "pse.h"
 
 #define CMD   "client"
 
