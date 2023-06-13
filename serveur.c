@@ -1,29 +1,24 @@
-#include "pse.h"
+#include "PSE/include/pse.h"
 
-#define   CMD         "serveur"
-#define   NB_WORKERS  10 
+#define    CMD      "serveur"
 
-void creerCohorteWorkers(void);
-int chercherWorkerLibre(void);
-void *threadWorker(void *arg);
-void sessionClient(int canal);
+void *sessionClient(void *arg);
 void remiseAZeroJournal(void);
 
 int fdJournal;
-DataSpec dataSpec[NB_WORKERS];
 
 int main(int argc, char *argv[]) {
   short port;
   int ecoute, canal, ret;
   struct sockaddr_in adrEcoute, adrClient;
   unsigned int lgAdrClient;
-  int numWorkerLibre;
+  DataThread *dataThread;
   
   fdJournal = open("journal.log", O_WRONLY|O_CREAT|O_APPEND, 0644);
   if (fdJournal == -1)
     erreur_IO("ouverture journal");
 
-  creerCohorteWorkers();
+  initDataThread();
 
   if (argc != 2)
     erreur("usage: %s port\n", argv[0]);
@@ -57,10 +52,17 @@ int main(int argc, char *argv[]) {
     printf("%s: adr %s, port %hu\n", CMD,
 	      stringIP(ntohl(adrClient.sin_addr.s_addr)), ntohs(adrClient.sin_port));
 
-    while ( (numWorkerLibre = chercherWorkerLibre()) < 0 )
-        usleep(100000);
+    dataThread = ajouterDataThread();
+    if (dataThread == NULL)
+      erreur_IO("ajouter data thread");
 
-    dataSpec[numWorkerLibre].canal = canal;
+    dataThread->spec.canal = canal;
+    ret = pthread_create(&dataThread->spec.id, NULL, sessionClient,
+                          &dataThread->spec);
+    if (ret != 0)
+      erreur_IO("creation thread");
+
+    joinDataThread();
   }
 
   if (close(ecoute) == -1)
@@ -72,53 +74,14 @@ int main(int argc, char *argv[]) {
   exit(EXIT_SUCCESS);
 }
 
-void creerCohorteWorkers(void) {
-  int i, ret;
-
-  for (i= 0; i < NB_WORKERS; i++) {
-    dataSpec[i].canal = -1;
-    dataSpec[i].tid = i;
-
-    ret = pthread_create(&dataSpec[i].id, NULL, threadWorker, &dataSpec[i]);
-    if (ret != 0)
-      erreur_IO("creation thread");
-  }
-}
-
-// retourne le no. du worker libre trouve ou -1 si pas de worker libre
-int chercherWorkerLibre(void) {
-  int i = 0;
-
-  while (dataSpec[i].canal != -1 && i < NB_WORKERS)
-    i++;
-
-  if (i < NB_WORKERS)
-    return i;
-  else
-    return -1;
-}
-
-void *threadWorker(void *arg) {
+void *sessionClient(void *arg) {
   DataSpec *dataTh = (DataSpec *)arg;
-
-  while (VRAI) {
-    while (dataTh->canal < 0)
-      usleep(100000);
-    printf("%s: worker %d reveil\n", CMD, dataTh->tid);
-
-    sessionClient(dataTh->canal);
-
-    dataTh->canal = -1;
-    printf("%s: worker %d sommeil\n", CMD, dataTh->tid);
-  }
-
-  pthread_exit(NULL);
-}
-
-void sessionClient(int canal) {
+  int canal;
   int fin = FAUX;
   char ligne[LIGNE_MAX];
   int lgLue;
+
+  canal = dataTh->canal;
 
   while (!fin) {
     lgLue = lireLigne(canal, ligne);
@@ -142,13 +105,17 @@ void sessionClient(int canal) {
     }
     else
       erreur_IO("ecriture journal");
-  } // fin while
+  }
 
   if (close(canal) == -1)
     erreur_IO("fermeture canal");
+
+  dataTh->libre = VRAI;
+
+  pthread_exit(NULL);
 }
 
-// le fichier est ferme et rouvert vide
+/* le fichier est ferme et rouvert vide */
 void remiseAZeroJournal(void) {
   if (close(fdJournal) == -1)
     erreur_IO("raz journal - fermeture");
