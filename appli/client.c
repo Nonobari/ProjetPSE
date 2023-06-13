@@ -10,6 +10,7 @@ int main(int argc, char *argv[]) {
   char ligne[LIGNE_MAX];
   int lg;
 
+  char phrase[TAILLE_PHRASE];
   if (argc != 3)
     erreur("usage: %s machine port\n", argv[0]);
 
@@ -31,7 +32,9 @@ int main(int argc, char *argv[]) {
   ret = connect(sock, (struct sockaddr *)adrServ, sizeof(struct sockaddr_in));
   if (ret < 0)
     erreur_IO("connect");
-
+  
+  printf("-----------------------------------------\n");
+  printf("\n");
   printf(" TTTTT  Y   Y  PPPP    I    N   N   GGG         TTTTT   EEEEE  SSSS  TTTTT \n");  
   printf("   T     Y Y   P   P   I    NN  N  G              T     E     S        T   \n"); 
   printf("   T      Y    PPPP    I    N N N  G  GG          T     EEE    SSS     T   \n");
@@ -68,19 +71,34 @@ int main(int argc, char *argv[]) {
   while (!fin) {
 
     printf("Vous êtes dans la salle d'attente, veuillez patienter...\n");
-    if (fgets(ligne, LIGNE_MAX, stdin) == NULL)
-      erreur("saisie fin de fichier\n");
-
     
-    /*Tant que le serveur envoie pas le message de start*/
-    while (lg = lireLigne(sock, ligne) && strcmp(ligne, "start\n") != 0) {
-      lg = lireLigne(sock, ligne);
+    /*Tant que le serveur envoie pas le message de start qui indique que les joeuurs sont là*/
+    while ((lg = lireLigne(sock, ligne)) && (strcmp(ligne, "start\n") != 0)) {
       if (lg == -1)
         erreur_IO("lireLigne");
-      }
+      printf("%s\n", ligne);
+      sleep(2);
+    }
+    
+    /*On affiche le message de start*/
+    printf("J'ai reçu le start du serveur %s\n",ligne);  
 
-      /*On affiche le message de start*/
-      printf("J'ai reçu le start du serveur %s\n",ligne);  }
+    /*On reçois la  phrase*/
+
+    lg = lireLigne(sock, phrase);
+    
+    if (lg == -1)
+        erreur_IO("lireLigne");
+    
+    printf("Veuillez saisir la phrase : %s\n", phrase);
+
+    while(1)
+    {
+
+    }
+
+
+  }
 
   printf("Partie terminée !\n");
   if (close(sock) == -1)

@@ -4,7 +4,7 @@
 
 void generate_sentence(char sentence[]) {
 
-    FILE *file = fopen("liste_francais.txt", "r");
+    FILE *file = fopen("/liste_francais.txt", "r");
     if (file == NULL) {
         printf("Impossible d'ouvrir le fichier liste_francais.txt\n");
         exit(1);

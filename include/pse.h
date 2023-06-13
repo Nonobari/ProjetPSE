@@ -32,6 +32,6 @@
 
 #define FAUX	0
 #define VRAI	1
-
+#define TAILLE_PHRASE 2000
 #endif
 

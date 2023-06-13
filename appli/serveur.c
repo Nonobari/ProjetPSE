@@ -3,15 +3,13 @@
 
 #define    CMD      "serveur"
 
-char phrase[2000][LIGNE_MAX];
-
 void *sessionClient(void *arg);
 void remiseAZeroJournal(void);
 
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t condition = PTHREAD_COND_INITIALIZER;
 int fdJournal;
 int clients_prets = 0;
+char phrase[TAILLE_PHRASE];
+
 
 int main(int argc, char *argv[]) {
   short port;
@@ -20,6 +18,8 @@ int main(int argc, char *argv[]) {
   unsigned int lgAdrClient;
   DataThread *dataThread;
   
+  generate_sentence(phrase);
+
   fdJournal = open("journal.log", O_WRONLY|O_CREAT|O_APPEND, 0644);
   if (fdJournal == -1)
     erreur_IO("ouverture journal");
@@ -88,25 +88,19 @@ void *sessionClient(void *arg) {
   int fin = FAUX;
   char ligne[LIGNE_MAX];
   int lgLue;
-  char phrase[2000];
 
 
   canal = dataTh->canal;
   printf("%s: connexion client\n",CMD);
   ecrireLigne(canal, "serveur: Etes-vous prêts ? o/n\n");
   lgLue = lireLigne(canal, ligne);
+  lgLue++;
   if (strcmp(ligne, "o") == 0)
     {
       /*set client state to ready*/
       dataTh->ready = VRAI;
       printf("Client %ld is ready\n", dataTh->id);
-      pthread_mutex_lock(&mutex);
       clients_prets++;
-      printf("Sending start to client %ld\n", dataTh->id);
-      ecrireLigne(canal, "start");
-      pthread_cond_signal(&condition);
-      pthread_mutex_unlock(&mutex);
-      
     }
 
   else {
@@ -114,40 +108,22 @@ void *sessionClient(void *arg) {
     dataTh->ready = FAUX;
     printf("Client %ld is not ready\n", dataTh->id);
   }
-    generate_sentence(phrase);
-    printf("Phrase générée : %s\n", phrase);
-  /*on attend que les deux clients soient prêts*/
-    pthread_mutex_lock(&mutex);
-    while (clients_prets < 2) {
-        pthread_cond_wait(&condition, &mutex);
+
+  /*wait for all clients to be ready*/
+    while (clients_prets < 2)
+    {
+      printf("Waiting for clients to be ready\n");
+      sleep(2);
     }
-    pthread_mutex_unlock(&mutex);
-    /*on envoie la phrase au client*/
+    
+    printf("Je vais écrire start\n");
+    ecrireLigne(canal, "start\n");
+    printf("Je vais écrire hello\n");
+    ecrireLigne(canal,"hello\n");
 
 
   while (!fin) {
     
-
-    /*if (strcmp(ligne, "fin") == 0) {
-        printf("%s: fin client\n", CMD);
-        fin = VRAI;
-    }
-    else if (strcmp(ligne, "init") == 0) {
-      printf("%s: remise a zero journal\n", CMD);
-      remiseAZeroJournal();
-    }
-    else if (ecrireLigne(fdJournal, ligne) != -1) {
-        printf("%s: ligne de %d octets ecrite dans journal\n", CMD, lgLue);
-    }
-    else {
-        erreur_IO("ecriture journal");
-    }
-     
-      printf("ligne> ");
-      if (fgets(ligne, LIGNE_MAX, stdin) == NULL)
-      erreur("saisie fin de fichier\n");
-*/
-
   }
 
   if (close(canal) == -1)
