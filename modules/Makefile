@@ -18,5 +18,3 @@ $(LIBRARY): $(MODULES_OBJ)
 
 clean :
 	rm -f $(MODULES_OBJ) $(LIBRARY) *~
-
-
