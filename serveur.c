@@ -1,4 +1,5 @@
 #include "pse.h"
+#include "words.h"
 
 #define    CMD      "serveur"
 
@@ -103,8 +104,16 @@ void *sessionClient(void *arg) {
     else if (ecrireLigne(fdJournal, ligne) != -1) {
         printf("%s: ligne de %d octets ecrite dans journal\n", CMD, lgLue);
     }
-    else
-      erreur_IO("ecriture journal");
+    else {
+        erreur_IO("ecriture journal");
+    }
+     
+      printf("ligne> ");
+      if (fgets(ligne, LIGNE_MAX, stdin) == NULL)
+      erreur("saisie fin de fichier\n");
+
+
+
   }
 
   if (close(canal) == -1)
