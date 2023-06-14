@@ -12,7 +12,7 @@
 /*
   Taille maximale d'une ligne de texte
 */
-#define LIGNE_MAX 160
+#define LIGNE_MAX 2048
 
 /*
   lit une ligne de texte depuis le fichier ouvert 'fd'.

@@ -1,16 +1,18 @@
 #include "pse.h"
 
-
 #define CMD   "client"
 
 int main(int argc, char *argv[]) {
   int sock, ret;
   struct sockaddr_in *adrServ;
   int fin = VRAI;
+  int partie_en_cours = VRAI;
   char ligne[LIGNE_MAX];
+  char mot[TAILLE_MOT];
+  char mot_reponse[TAILLE_MOT];
   int lg;
+  int score;
 
-  char phrase[TAILLE_PHRASE];
   if (argc != 3)
     erreur("usage: %s machine port\n", argv[0]);
 
@@ -52,7 +54,7 @@ int main(int argc, char *argv[]) {
 
     printf("%s\n", ligne);
 
-  /*On lit la réponse */
+  /*On lit la réponse de l'utilisateur */
   if (fgets(ligne, LIGNE_MAX, stdin) == NULL)
       erreur("saisie fin de fichier\n");
 
@@ -62,44 +64,62 @@ int main(int argc, char *argv[]) {
   if (lg == -1)
     erreur_IO("ecrire ligne");
  
-  /*On lit la réponse du client savoir s'il est pret */
-  if (strcmp(ligne,"o")) {
+  /*On lit la réponse de l'utilisateur savoir s'il est pret */
+  if (strcmp(ligne,"o\n")==0) {
     fin = FAUX;
     }
 
   /*boucle d'envoi de lignes de texte*/
   while (!fin) {
 
-    printf("Vous êtes dans la salle d'attente, veuillez patienter...\n");
-    
-    /*Tant que le serveur envoie pas le message de start qui indique que les joeuurs sont là*/
-    while ((lg = lireLigne(sock, ligne)) && (strcmp(ligne, "start\n") != 0)) {
-      if (lg == -1)
-        erreur_IO("lireLigne");
-      printf("%s\n", ligne);
-      sleep(2);
-    }
-    
-    /*On affiche le message de start*/
-    printf("J'ai reçu le start du serveur %s\n",ligne);  
-
-    /*On reçois la  phrase*/
-
-    lg = lireLigne(sock, phrase);
-    
+    /*Fonction bloquante tant qu'on a pas de start*/
+    printf("Veuillez patientez, en attente de joueurs... \n");
+    lg = lireLigne(sock, ligne);
     if (lg == -1)
         erreur_IO("lireLigne");
-    
-    printf("Veuillez saisir la phrase : %s\n", phrase);
 
-    while(1)
+    /*On affiche le message de start*/
+    printf("J'ai reçu le start du serveur %s\n",ligne);  
+    printf("La partie va commencer !\n");
+    printf("Vous avez 10 secondes pour écrire le plus de mots possible !\n");
+    printf("C'est parti !\n");
+
+    while(partie_en_cours)
     {
-
+        /*On reçois le mot*/
+        lg = lireLigne(sock, mot);
+        if (lg == -1)
+          erreur_IO("lireLigne");
+        
+        /*Si le serveur envoie stop c'est la fin*/
+        if (strcmp(mot,"stop") != 0) {
+          printf("Veuillez saisir le mot : %s\n", mot);
+       
+        /*on lit le premier mot*/
+        if (fgets(mot_reponse, TAILLE_MOT, stdin) == NULL)
+          erreur("saisie fin de fichier\n");
+        
+        /*on l'envoie au serveur */
+        lg = ecrireLigne(sock, mot_reponse);
+        if (lg == -1)
+          erreur_IO("ecrire ligne");
+        }
+        
+        else {
+          partie_en_cours = FAUX;
+        }  
     }
+    printf("Bravo ! Vous avez fini la partie !\n");
 
+    /*Lire le score calculé par le serveur*/
+    printf("Jattend le score du serveur...\n");
+    lg = lireLigne(sock, ligne);
+    score = atoi(ligne);
+    printf("Votre score est de : %d\n", score);
 
   }
 
+  /*on appuie pas sur 'o' pour jouer*/
   printf("Partie terminée !\n");
   if (close(sock) == -1)
     erreur_IO("close socket");

@@ -2,7 +2,8 @@
     "files.associations": {
         "pse.h": "c",
         "time.h": "c",
-        "string.h": "c"
+        "string.h": "c",
+        "unistd.h": "c"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }

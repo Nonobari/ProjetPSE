@@ -2,16 +2,9 @@
 
 
 
-void generate_sentence(char sentence[]) {
+void generate_sentence(char sentence[TAILLE_PHRASE][TAILLE_MOT]) {
 
-    FILE *file = fopen("/liste_francais.txt", "r");
-    if (file == NULL) {
-        printf("Impossible d'ouvrir le fichier liste_francais.txt\n");
-        exit(1);
-    }
-    
-    char new_word[20];
-    
+    char new_word[TAILLE_MOT];
     // Initialisation du générateur de nombres aléatoires
     srand(time(NULL));
     for (int i = 0; i < 100 ; i++)
@@ -19,18 +12,21 @@ void generate_sentence(char sentence[]) {
         //On génère un nombre aléaoire entre 0 et 21074 100 fois pour avoir 100 mots
         int random = rand() % 21073;
         strcpy(new_word,get_word(random));
-        sprintf(sentence, "%s %s",sentence,new_word);
+        strcpy(sentence[i],new_word);
     }
-    
-    printf("phrase :\n%s",sentence);
-    }
+}
 
 
 char *get_word(int ligne)
 /*retourne le mot de la ligne ligne du fichier texte file */
 {
     FILE *file = fopen("liste_francais.txt", "r");
-    char *mot = malloc(20*sizeof(char));
+    if (file == NULL)
+    {
+        printf("Impossible d'ouvrir le fichier\n");
+    }
+    //test si le fichier a bien été ouvert
+    char *mot = malloc(TAILLE_MOT*sizeof(char));
     int i = 0;
     char c;
     while (i < ligne)
@@ -43,5 +39,6 @@ char *get_word(int ligne)
     }
     fscanf(file, "%s", mot);
     fclose(file);
+    sprintf(mot,"%s\n",mot);
     return mot;
 }
