@@ -117,6 +117,22 @@ int main(int argc, char *argv[]) {
     score = atoi(ligne);
     printf("Votre score est de : %d\n", score);
 
+    /*On lit le résultat */
+    printf("J'attend le résultat du serveur...\n");
+    lg = lireLigne(sock, ligne);
+    if (lg == -1)
+      erreur_IO("lireLigne");
+    
+    printf("Vous êtes %s\n", ligne);
+    /*if (strcmp(ligne,"gagne") == 0) {
+      printf("Vous avez gagné !\n");
+    }
+    else {
+      printf("Vous avez perdu !\n");
+    }*/
+
+    fin = VRAI;
+
   }
 
   /*on appuie pas sur 'o' pour jouer*/

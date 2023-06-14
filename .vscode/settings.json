@@ -3,7 +3,8 @@
         "pse.h": "c",
         "time.h": "c",
         "string.h": "c",
-        "unistd.h": "c"
+        "unistd.h": "c",
+        "system_error": "c"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }

@@ -5,9 +5,11 @@
 #define GAME_TIME 10
 #define NB_CLIENT 2
 
+void generateRanking(const int scores[], int ranking[]);
 void *timer_thread();
 void *sessionClient(void *arg);
 void remiseAZeroJournal(void);
+void calcul_score(int numero_du_joueur, char mots_ecrits[TAILLE_PHRASE][TAILLE_MOT], char phrase[TAILLE_PHRASE][TAILLE_MOT], int *score_tab);
 
 int fdJournal;
 int clients_prets = 0;
@@ -16,6 +18,7 @@ int start_chrono = FAUX;
 time_t start_time, elapsed_time;
 int stop = FAUX;
 int score_tab[NB_CLIENT];
+int classement[NB_CLIENT];
 
 int main(int argc, char *argv[]) {
   short port;
@@ -24,13 +27,10 @@ int main(int argc, char *argv[]) {
   unsigned int lgAdrClient;
   DataThread *dataThread;
   pthread_t timer_thread_id;
-  int i;
+  int n_client = 0;
   generate_sentence(phrase);
 
-  for (i = 0; i < NB_MAX_CLIENT ; i++)
-  {
-    printf("%d",score_tab[i]);
-  }
+
   fdJournal = open("journal.log", O_WRONLY|O_CREAT|O_APPEND, 0644);
   if (fdJournal == -1)
     erreur_IO("ouverture journal");
@@ -75,6 +75,8 @@ int main(int argc, char *argv[]) {
       erreur_IO("ajouter data thread");
 
     dataThread->spec.canal = canal; /*on spécifie le canal pour le nouveau thread*/
+    dataThread->spec.n_client = n_client; /*On specifie le numéro du joeur*/
+    n_client++;
     
     ret = pthread_create(&dataThread->spec.id, NULL, sessionClient, /*on crée le thread avec la fonction sessionClient */
                           &dataThread->spec);
@@ -99,9 +101,12 @@ void *sessionClient(void *arg) {
   int canal;
   int fin = FAUX;
   char ligne[LIGNE_MAX];
+  char formatted_ligne[LIGNE_MAX+1];
   char mots_ecrits[TAILLE_PHRASE][TAILLE_MOT];
   int lgLue;
   int i;
+  char score[20];
+  
 
   canal = dataTh->canal;
   printf("%s: connexion client\n",CMD);
@@ -111,27 +116,24 @@ void *sessionClient(void *arg) {
   if (strcmp(ligne, "o") == 0)
     {
       /*set client state to ready*/
-      dataTh->ready = VRAI;
-      printf("Client %ld is ready\n", dataTh->id);
+      printf("%s: Client %d is ready\n",CMD, dataTh->n_client);
       clients_prets++;
     }
 
   else {
     /*set client state to not ready*/
-    dataTh->ready = FAUX;
-    printf("Client %ld is not ready\n", dataTh->id);
+    printf("%s: Client %d is not ready\n",CMD, dataTh->n_client);
   }
 
   /*wait for all clients to be ready*/
-    while (clients_prets < NB_MAX_CLIENT)
+    while (clients_prets < NB_CLIENT)
     {
-      printf("Waiting for clients to be ready\n");
+      printf("%s: Waiting for clients to be ready\n",CMD);
       sleep(2);
     }
     
     
     ecrireLigne(canal, "start\n");
-    printf("Je vais écrire le mot\n");
     
     /*On lance le chrono*/
     start_chrono = VRAI;
@@ -140,16 +142,27 @@ void *sessionClient(void *arg) {
     {
       if (!stop)
       {
-        ecrireLigne(canal,phrase[i]);
-        lgLue = lireLigne(canal,ligne);
-        strcpy(mots_ecrits[i],ligne);
+      ecrireLigne(canal,phrase[i]);
+      lgLue = lireLigne(canal,ligne);
+      sprintf(formatted_ligne,"%s\n",ligne);
+      strcpy(mots_ecrits[i],formatted_ligne);
       }
-      
     }
-    
     /*On arrête le chrono*/
     ecrireLigne(canal, "stop\n");
+    /*on envoie le score convertit*/
+    calcul_score(dataTh->n_client,mots_ecrits,phrase,score_tab);
+    sprintf(score, "%d",score_tab[dataTh->n_client]);
+    printf("%s: envoi du score aux clients%s\n",CMD,score);
+    ecrireLigne(canal,score);
 
+    /*calcul classement*/
+    generateRanking(score_tab,classement);
+    printf("%s: annonce les résultats des clients\n",CMD);
+    sprintf(ligne, "%d",classement[dataTh->n_client]);
+    ecrireLigne(canal,ligne);
+    
+    
   while (!fin) {
     
   }
@@ -188,4 +201,38 @@ void *timer_thread()
   }
   printf("Stop temps écoulé");
   stop = VRAI;
+  pthread_exit(NULL);
+}
+
+
+void calcul_score(int numero_du_joueur, char mots_ecrits[TAILLE_PHRASE][TAILLE_MOT], char phrase[TAILLE_PHRASE][TAILLE_MOT], int *score_tab)
+{
+  int i;
+  for (i = 0; i < TAILLE_PHRASE; i++)
+  {
+    printf("%s",mots_ecrits[i]);
+    printf("%s",phrase[i]);
+    printf("truc");
+    if (strcmp(mots_ecrits[i],phrase[i]) == 0)
+    {
+      score_tab[numero_du_joueur]++;
+    }
+  }
+}
+
+void generateRanking(const int scores[], int ranking[]) {
+    int i, j;
+
+    for (i = 0; i < NB_CLIENT; i++) {
+        int currentScore = scores[i];
+        int currentRank = 1;
+
+        for (j = 0; j < NB_CLIENT; j++) {
+            if (scores[j] > currentScore) {
+                currentRank++;
+            }
+        }
+
+        ranking[i] = currentRank;
+    }
 }

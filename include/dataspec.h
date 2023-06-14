@@ -11,7 +11,7 @@ typedef struct DataSpec_t {
   int tid;                    /* identifiant logique */
   int canal;                  /* canal de communication */
   sem_t sem;                  /* semaphore de reveil */
-  int ready;                  /* client ready */
+  int n_client;               /*numero du client connecte*/
 } DataSpec;
 
 #endif
