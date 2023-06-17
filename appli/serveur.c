@@ -139,12 +139,17 @@ void *sessionClient(void *arg) {
     else {
       /*set client state to not ready*/
       printf("%s: Client %d is not ready\n",CMD, dataTh->n_client);
+      if (close(canal) == -1)
+        erreur_IO("fermeture canal");
+      dataTh->libre = VRAI;
+      pthread_exit(NULL);
     }
 
     /*wait for all clients to be ready*/
       while (clients_prets < NB_CLIENT)
       {
         printf("%s: Waiting for clients to be ready\n",CMD);
+        printf("nb de clients prets %d\n",clients_prets);
         sleep(2);
       }
       
@@ -215,7 +220,6 @@ void *sessionClient(void *arg) {
         /*On remet à 0 le chrono*/
         start_time = 0;
         elapsed_time = 0;
-
       }
   }
 
