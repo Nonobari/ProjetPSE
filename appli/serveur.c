@@ -5,20 +5,25 @@
 #define GAME_TIME 10
 #define NB_CLIENT 2
 
+/*on déclare un mutex statique*/
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 void generateRanking(const int scores[], int ranking[]);
 void *timer_thread();
 void *sessionClient(void *arg);
 void remiseAZeroJournal(void);
 void calcul_score(int numero_du_joueur, char mots_ecrits[TAILLE_PHRASE][TAILLE_MOT], char phrase[TAILLE_PHRASE][TAILLE_MOT], int *score_tab);
+void *timer();
 
 int fdJournal;
 int clients_prets = 0;
 char phrase[TAILLE_PHRASE][TAILLE_MOT];
+int phrase_flag = FAUX;
 int start_chrono = FAUX;
 time_t start_time, elapsed_time;
 int stop = FAUX;
 int score_tab[NB_CLIENT];
 int classement[NB_CLIENT];
+pthread_t timer_thread_id;
 
 int main(int argc, char *argv[]) {
   short port;
@@ -26,9 +31,7 @@ int main(int argc, char *argv[]) {
   struct sockaddr_in adrEcoute, adrClient;
   unsigned int lgAdrClient;
   DataThread *dataThread;
-  pthread_t timer_thread_id;
   int n_client = 0;
-  generate_sentence(phrase);
 
 
   fdJournal = open("journal.log", O_WRONLY|O_CREAT|O_APPEND, 0644);
@@ -40,7 +43,7 @@ int main(int argc, char *argv[]) {
   if (argc != 2)
     erreur("usage: %s port\n", argv[0]);
 
-  port = (short)atoi(argv[1]);
+  port = (short) atoi(argv[1]);
 
   printf("%s: creating a socket\n", CMD);
   ecoute = socket (AF_INET, SOCK_STREAM, 0);
@@ -59,7 +62,6 @@ int main(int argc, char *argv[]) {
   ret = listen (ecoute, 5); /*liste d'attente de 5*/
   if (ret < 0)
     erreur_IO("listen");
-  pthread_create(&timer_thread_id,NULL,timer_thread,NULL);
   /*Boucle d'écoute du serveur*/
   while (VRAI) {
     printf("%s: accepting a connection\n", CMD);
@@ -75,7 +77,7 @@ int main(int argc, char *argv[]) {
       erreur_IO("ajouter data thread");
 
     dataThread->spec.canal = canal; /*on spécifie le canal pour le nouveau thread*/
-    dataThread->spec.n_client = n_client; /*On specifie le numéro du joeur*/
+    dataThread->spec.n_client = n_client; /*On specifie le numéro du joueur*/
     n_client++;
     
     ret = pthread_create(&dataThread->spec.id, NULL, sessionClient, /*on crée le thread avec la fonction sessionClient */
@@ -96,7 +98,9 @@ int main(int argc, char *argv[]) {
   exit(EXIT_SUCCESS);
 }
 
+
 void *sessionClient(void *arg) {
+
   DataSpec *dataTh = (DataSpec *)arg;
   int canal;
   int fin = FAUX;
@@ -110,61 +114,109 @@ void *sessionClient(void *arg) {
 
   canal = dataTh->canal;
   printf("%s: connexion client\n",CMD);
-  ecrireLigne(canal, "serveur: Etes-vous prêts ? o/n\n");
-  lgLue = lireLigne(canal, ligne); /*on lit la réponse du client*/
-  lgLue++;
-  if (strcmp(ligne, "o") == 0)
-    {
-      /*set client state to ready*/
-      printf("%s: Client %d is ready\n",CMD, dataTh->n_client);
-      clients_prets++;
-    }
-
-  else {
-    /*set client state to not ready*/
-    printf("%s: Client %d is not ready\n",CMD, dataTh->n_client);
-  }
-
-  /*wait for all clients to be ready*/
-    while (clients_prets < NB_CLIENT)
-    {
-      printf("%s: Waiting for clients to be ready\n",CMD);
-      sleep(2);
-    }
-    
-    
-    ecrireLigne(canal, "start\n");
-    
-    /*On lance le chrono*/
-    start_chrono = VRAI;
-    
-    for (i = 0; i < 100 ; i++)
-    {
-      if (!stop)
-      {
-      ecrireLigne(canal,phrase[i]);
-      lgLue = lireLigne(canal,ligne);
-      sprintf(formatted_ligne,"%s\n",ligne);
-      strcpy(mots_ecrits[i],formatted_ligne);
-      }
-    }
-    /*On arrête le chrono*/
-    ecrireLigne(canal, "stop\n");
-    /*on envoie le score convertit*/
-    calcul_score(dataTh->n_client,mots_ecrits,phrase,score_tab);
-    sprintf(score, "%d",score_tab[dataTh->n_client]);
-    printf("%s: envoi du score aux clients%s\n",CMD,score);
-    ecrireLigne(canal,score);
-
-    /*calcul classement*/
-    generateRanking(score_tab,classement);
-    printf("%s: annonce les résultats des clients\n",CMD);
-    sprintf(ligne, "%d",classement[dataTh->n_client]);
-    ecrireLigne(canal,ligne);
-    
-    
   while (!fin) {
-    
+
+    /*section critique car un seul thread client va généer la phrase*/
+    pthread_mutex_lock(&mutex);
+    if (!phrase_flag)
+    {
+      generate_sentence(phrase);
+      printf("%s: Phrase generated\n",CMD);
+      phrase_flag = VRAI;
+    }
+    pthread_mutex_unlock(&mutex);
+
+    ecrireLigne(canal, "serveur: Etes-vous prêts ? o/n\n");
+    lgLue = lireLigne(canal, ligne); /*on lit la réponse du client*/
+    lgLue++;
+    if (strcmp(ligne, "o") == 0)
+      {
+        /*set client state to ready*/
+        printf("%s: Client %d is ready\n",CMD, dataTh->n_client);
+        clients_prets++;
+      }
+
+    else {
+      /*set client state to not ready*/
+      printf("%s: Client %d is not ready\n",CMD, dataTh->n_client);
+    }
+
+    /*wait for all clients to be ready*/
+      while (clients_prets < NB_CLIENT)
+      {
+        printf("%s: Waiting for clients to be ready\n",CMD);
+        sleep(2);
+      }
+      
+      
+      ecrireLigne(canal, "start\n");
+      
+      /*On lance le thread timer*/
+      pthread_mutex_lock(&mutex);
+      if (!start_chrono){
+        pthread_create(&timer_thread_id,NULL,timer,NULL);
+        start_chrono = VRAI;
+      }
+      pthread_mutex_unlock(&mutex);
+      /*On lance le chrono*/
+        
+
+      for (i = 0; i < 100 ; i++)
+      {
+        if (!stop)
+        {
+        ecrireLigne(canal,phrase[i]);
+        lgLue = lireLigne(canal,ligne);
+        sprintf(formatted_ligne,"%s\n",ligne);
+        strcpy(mots_ecrits[i],formatted_ligne);
+        }
+      }
+      /*On arrête le chrono*/
+      ecrireLigne(canal, "stop\n");
+      /*on envoie le score convertit*/
+      calcul_score(dataTh->n_client,mots_ecrits,phrase,score_tab);
+      sprintf(score, "%d",score_tab[dataTh->n_client]);
+      printf("%s: envoi du score au client n %d : %s\n",CMD,dataTh->n_client,score);
+      ecrireLigne(canal,score);
+
+      /*calcul classement*/
+      generateRanking(score_tab,classement);
+      printf("%s: annonce les résultats des clients\n",CMD);
+      sprintf(ligne, "%d",classement[dataTh->n_client]);
+      ecrireLigne(canal,ligne);
+      clients_prets--;
+      if (clients_prets == 0)
+      {
+
+        /*On remet le chrono à 0*/
+        start_chrono = FAUX;
+        stop = FAUX;
+        /*On remet le score à 0*/
+        score_tab[dataTh->n_client] = 0;
+        /*On remet le classement à 0*/
+        classement[dataTh->n_client] = 0;
+        /*On remet le tableau de mots à 0*/
+        for (i = 0; i < 100 ; i++)
+        {
+          strcpy(mots_ecrits[i],"");
+        }
+        /*On remet la phrase à 0*/
+        for (i = 0; i < 100 ; i++)
+        {
+          strcpy(phrase[i],"");
+        }
+        /*On remet le tableau de score à 0*/
+        for (i = 0; i < NB_CLIENT ; i++)
+        {
+          score_tab[i] = 0;
+        }     
+        /*On remet le tableau le phrase_flag à FAUX*/
+        phrase_flag = FAUX;
+        /*On remet à 0 le chrono*/
+        start_time = 0;
+        elapsed_time = 0;
+
+      }
   }
 
   if (close(canal) == -1)
@@ -186,20 +238,15 @@ void remiseAZeroJournal(void) {
 }
 
 
-void *timer_thread()
+void *timer()
 {
-   while(!start_chrono){};
-    printf("passage time");
     time(&start_time);
     time(&elapsed_time);
-    /*printf("difftime = %.2f\n",difftime(elapsed_time,start_time));*/
   while(difftime(elapsed_time,start_time) < GAME_TIME)
   {
-    /*printf("elapsed_time : %.2f\n",difftime(elapsed_time,start_time));*/
     sleep(0.5);
     time(&elapsed_time);
   }
-  printf("Stop temps écoulé");
   stop = VRAI;
   pthread_exit(NULL);
 }
@@ -210,9 +257,6 @@ void calcul_score(int numero_du_joueur, char mots_ecrits[TAILLE_PHRASE][TAILLE_M
   int i;
   for (i = 0; i < TAILLE_PHRASE; i++)
   {
-    printf("%s",mots_ecrits[i]);
-    printf("%s",phrase[i]);
-    printf("truc");
     if (strcmp(mots_ecrits[i],phrase[i]) == 0)
     {
       score_tab[numero_du_joueur]++;

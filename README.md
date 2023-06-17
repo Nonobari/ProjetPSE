@@ -27,3 +27,10 @@ Multithreading client server
 -> entrer "h" pour afficher l'historique des parties
 -> entrer "c" pour afficher le classement des joueurs
 
+
+### To Do
+
+- améliorer le système de connexion (choix du pseudo, nouvelle partie etc)
+- améliorer le système de classement (afficher à tous les joueurs le classement général)
+- améliorer le système de points et statistiques (nombre de fautes lettre par lettre, pourcentage de justesse) et nombre de mots par minutes
+- améliorer le système de parties (choix du nombre de mots, choix du temps de partie, choix du nombre de joueurs)
