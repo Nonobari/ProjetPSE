@@ -5,11 +5,14 @@
 #define GAME_TIME 10
 #define NB_CLIENT 2
 
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
 void generateRanking(const int scores[], int ranking[]);
 void *timer_thread();
 void *sessionClient(void *arg);
 void remiseAZeroJournal(void);
 void calcul_score(int numero_du_joueur, char mots_ecrits[TAILLE_PHRASE][TAILLE_MOT], char phrase[TAILLE_PHRASE][TAILLE_MOT], int *score_tab);
+
 
 int fdJournal;
 int clients_prets = 0;
@@ -19,6 +22,7 @@ time_t start_time, elapsed_time;
 int stop = FAUX;
 int score_tab[NB_CLIENT];
 int classement[NB_CLIENT];
+int partie_start = FAUX;
 
 int main(int argc, char *argv[]) {
   short port;
@@ -62,28 +66,67 @@ int main(int argc, char *argv[]) {
   pthread_create(&timer_thread_id,NULL,timer_thread,NULL);
   /*Boucle d'écoute du serveur*/
   while (VRAI) {
-    printf("%s: accepting a connection\n", CMD);
-    canal = accept(ecoute, (struct sockaddr *)&adrClient, &lgAdrClient);
-    if (canal < 0)
-      erreur_IO("accept");
+    /**si la partie n'a pas commencé on est en écoute*/
+    if (!partie_start) {
+      printf("%s: accepting a connection\n", CMD);
+      canal = accept(ecoute, (struct sockaddr *)&adrClient, &lgAdrClient);
+      if (canal < 0)
+        erreur_IO("accept");
 
-    printf("%s: adr %s, port %hu\n", CMD,
-	      stringIP(ntohl(adrClient.sin_addr.s_addr)), ntohs(adrClient.sin_port));
+      printf("%s: adr %s, port %hu\n", CMD,
+          stringIP(ntohl(adrClient.sin_addr.s_addr)), ntohs(adrClient.sin_port));
 
-    dataThread = ajouterDataThread();
-    if (dataThread == NULL)
-      erreur_IO("ajouter data thread");
+      dataThread = ajouterDataThread();
+      if (dataThread == NULL)
+        erreur_IO("ajouter data thread");
 
-    dataThread->spec.canal = canal; /*on spécifie le canal pour le nouveau thread*/
-    dataThread->spec.n_client = n_client; /*On specifie le numéro du joeur*/
-    n_client++;
-    
-    ret = pthread_create(&dataThread->spec.id, NULL, sessionClient, /*on crée le thread avec la fonction sessionClient */
-                          &dataThread->spec);
-    if (ret != 0)
-      erreur_IO("creation thread");
+      dataThread->spec.canal = canal; /*on spécifie le canal pour le nouveau thread*/
+      dataThread->spec.n_client = n_client; /*On specifie le numéro du joeur*/
+      n_client++;
+      if (n_client == NB_CLIENT) {
+        partie_start = VRAI;
+      }
 
-    joinDataThread();
+      ret = pthread_create(&dataThread->spec.id, NULL, sessionClient, /*on crée le thread avec la fonction sessionClient */
+                            &dataThread->spec);
+      if (ret != 0)
+        erreur_IO("creation thread");
+
+      joinDataThread();
+    }
+
+    /**si la partie a commencé on attend la fin de la partie*/
+    else {
+       /*Attente de la fin des threads en parcourant la liste*/
+        DataThread *current = dataThread;
+        while (current != NULL) {
+          pthread_join(current->spec.id, NULL);
+          printf("%s: thread %lu est termine\n", CMD, current->spec.id);
+          n_client --;
+          current = current->next;
+        }
+        partie_start = FAUX;
+
+      /*On reinitialise les données*/
+
+      pthread_mutex_lock(&mutex);
+      memset(phrase,0,sizeof(phrase));
+      pthread_mutex_unlock(&mutex);
+
+      pthread_mutex_lock(&mutex);
+      memset(score_tab,0,sizeof(score_tab));
+      pthread_mutex_unlock(&mutex);
+
+      pthread_mutex_lock(&mutex);
+      memset(classement,0,sizeof(classement));
+      pthread_mutex_unlock(&mutex);
+
+      pthread_mutex_lock(&mutex);
+      clients_prets = 0;
+      pthread_mutex_unlock(&mutex);
+
+    }
+     
   }
  
 
@@ -99,7 +142,6 @@ int main(int argc, char *argv[]) {
 void *sessionClient(void *arg) {
   DataSpec *dataTh = (DataSpec *)arg;
   int canal;
-  int fin = FAUX;
   char ligne[LIGNE_MAX];
   char formatted_ligne[LIGNE_MAX+1];
   char mots_ecrits[TAILLE_PHRASE][TAILLE_MOT];
@@ -117,7 +159,10 @@ void *sessionClient(void *arg) {
     {
       /*set client state to ready*/
       printf("%s: Client %d is ready\n",CMD, dataTh->n_client);
+      
+      pthread_mutex_lock(&mutex);
       clients_prets++;
+      pthread_mutex_unlock(&mutex);
     }
 
   else {
@@ -136,8 +181,10 @@ void *sessionClient(void *arg) {
     ecrireLigne(canal, "start\n");
     
     /*On lance le chrono*/
+    pthread_mutex_lock(&mutex);
     start_chrono = VRAI;
-    
+    pthread_mutex_unlock(&mutex);
+
     for (i = 0; i < 100 ; i++)
     {
       if (!stop)
@@ -148,6 +195,8 @@ void *sessionClient(void *arg) {
       strcpy(mots_ecrits[i],formatted_ligne);
       }
     }
+
+  
     /*On arrête le chrono*/
     ecrireLigne(canal, "stop\n");
     /*on envoie le score convertit*/
@@ -163,13 +212,8 @@ void *sessionClient(void *arg) {
     ecrireLigne(canal,ligne);
     
     
-  while (!fin) {
-    
-  }
-
   if (close(canal) == -1)
     erreur_IO("fermeture canal");
-
   dataTh->libre = VRAI;
 
   pthread_exit(NULL);
@@ -189,6 +233,10 @@ void remiseAZeroJournal(void) {
 void *timer_thread()
 {
    while(!start_chrono){};
+    pthread_mutex_lock(&mutex);
+    start_chrono = FAUX;
+    pthread_mutex_unlock(&mutex);
+
     printf("passage time");
     time(&start_time);
     time(&elapsed_time);
@@ -200,7 +248,11 @@ void *timer_thread()
     time(&elapsed_time);
   }
   printf("Stop temps écoulé");
+
+  pthread_mutex_lock(&mutex);
   stop = VRAI;
+  pthread_mutex_unlock(&mutex);
+
   pthread_exit(NULL);
 }
 
@@ -210,9 +262,6 @@ void calcul_score(int numero_du_joueur, char mots_ecrits[TAILLE_PHRASE][TAILLE_M
   int i;
   for (i = 0; i < TAILLE_PHRASE; i++)
   {
-    printf("%s",mots_ecrits[i]);
-    printf("%s",phrase[i]);
-    printf("truc");
     if (strcmp(mots_ecrits[i],phrase[i]) == 0)
     {
       score_tab[numero_du_joueur]++;
