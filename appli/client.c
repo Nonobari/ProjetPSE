@@ -131,8 +131,13 @@ int main(int argc, char *argv[]) {
       printf("Vous avez perdu !\n");
     }*/
 
-    fin = VRAI;
-
+    printf("Voulez-vous rejouer ? (o/n) ");
+    if (fgets(ligne, LIGNE_MAX, stdin) == NULL)
+      erreur("saisie fin de fichier\n");
+    
+    if (strcmp(ligne,"o\n")==0) {
+    fin = FAUX;
+    }
   }
 
   /*on appuie pas sur 'o' pour jouer*/

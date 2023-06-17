@@ -161,11 +161,6 @@ void *sessionClient(void *arg) {
     printf("%s: annonce les résultats des clients\n",CMD);
     sprintf(ligne, "%d",classement[dataTh->n_client]);
     ecrireLigne(canal,ligne);
-    
-    
-  while (!fin) {
-    
-  }
 
   if (close(canal) == -1)
     erreur_IO("fermeture canal");
