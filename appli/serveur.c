@@ -85,6 +85,7 @@ int main(int argc, char *argv[]) {
       n_client++;
       if (n_client == NB_CLIENT) {
         partie_start = VRAI;
+        printf("La partie commence\n");
       }
 
       ret = pthread_create(&dataThread->spec.id, NULL, sessionClient, /*on crée le thread avec la fonction sessionClient */
@@ -92,7 +93,8 @@ int main(int argc, char *argv[]) {
       if (ret != 0)
         erreur_IO("creation thread");
 
-      joinDataThread();
+      
+      joinDataThread(); /*les thread libre sont join */
     }
 
     /**si la partie a commencé on attend la fin de la partie*/
@@ -100,9 +102,13 @@ int main(int argc, char *argv[]) {
        /*Attente de la fin des threads en parcourant la liste*/
         DataThread *current = dataThread;
         while (current != NULL) {
+          printf("Je suis bloqué sur le pthread join");
           pthread_join(current->spec.id, NULL);
+          printf("Je suis débloqué sur le pthread join");
+
           printf("%s: thread %lu est termine\n", CMD, current->spec.id);
           n_client --;
+          printf("Il reste %d clients\n", n_client);
           current = current->next;
         }
         partie_start = FAUX;
