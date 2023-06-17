@@ -281,7 +281,6 @@ void generateRanking(const int scores[], int ranking[]) {
                 currentRank++;
             }
         }
-
         ranking[i] = currentRank;
     }
 }
