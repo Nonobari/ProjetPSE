@@ -112,13 +112,13 @@ int main(int argc, char *argv[]) {
     printf("Bravo ! Vous avez fini la partie !\n");
 
     /*Lire le score calculé par le serveur*/
-    printf("Jattend le score du serveur...\n");
+    /*printf("Jattend le score du serveur...\n");*/
     lg = lireLigne(sock, ligne);
     score = atoi(ligne);
     printf("Votre score est de : %d\n", score);
 
     /*On lit le résultat */
-    printf("J'attend le résultat du serveur...\n");
+    /*printf("J'attend le résultat du serveur...\n");*/
     lg = lireLigne(sock, ligne);
     if (lg == -1)
       erreur_IO("lireLigne");
@@ -137,6 +137,7 @@ int main(int argc, char *argv[]) {
 
   /*on appuie pas sur 'o' pour jouer*/
   printf("Partie terminée !\n");
+
   if (close(sock) == -1)
     erreur_IO("close socket");
 

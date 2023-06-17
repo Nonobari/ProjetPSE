@@ -10,3 +10,4 @@ CFLAGS = -g -I. -I${PSE_INCL_DIR}
 LDLIBS = -L${PSE_LIB} -lpse -lm -pthread  -W -Wall -ansi -pedantic 
 
 CC = gcc
+
