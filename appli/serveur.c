@@ -13,7 +13,7 @@ void *sessionClient(void *arg);
 void remiseAZeroJournal(void);
 void calcul_score(int numero_du_joueur, char mots_ecrits[TAILLE_PHRASE][TAILLE_MOT], char phrase[TAILLE_PHRASE][TAILLE_MOT], int *score_tab);
 void *timer();
-
+int trouver_premier_libre(int tab[]);
 int fdJournal;
 int clients_prets = 0;
 char phrase[TAILLE_PHRASE][TAILLE_MOT];
@@ -32,8 +32,7 @@ int main(int argc, char *argv[]) {
   unsigned int lgAdrClient;
   DataThread *dataThread;
   int n_client = 0;
-
-
+  memset(score_tab, -1, sizeof(score_tab));
   fdJournal = open("journal.log", O_WRONLY|O_CREAT|O_APPEND, 0644);
   if (fdJournal == -1)
     erreur_IO("ouverture journal");
@@ -77,8 +76,18 @@ int main(int argc, char *argv[]) {
       erreur_IO("ajouter data thread");
 
     dataThread->spec.canal = canal; /*on spécifie le canal pour le nouveau thread*/
+   
+    pthread_mutex_lock(&mutex);
+    printf("Je suis avat d'appeler la fonction trouver_premier_libre\n");
+    printf("score_tab[0] = %d\n",score_tab[0]);
+    printf("score_tab[1] = %d\n",score_tab[1]);
+
+    n_client = trouver_premier_libre(score_tab);
+    printf("Je viens de trouver un numéro de client pour le thread, n_client = %d\n",n_client);
     dataThread->spec.n_client = n_client; /*On specifie le numéro du joueur*/
+    score_tab[n_client] = 0;
     n_client++;
+    pthread_mutex_unlock(&mutex);
     
     ret = pthread_create(&dataThread->spec.id, NULL, sessionClient, /*on crée le thread avec la fonction sessionClient */
                           &dataThread->spec);
@@ -132,16 +141,20 @@ void *sessionClient(void *arg) {
     if (strcmp(ligne, "o") == 0)
       {
         /*set client state to ready*/
-        printf("%s: Client %ld is ready\n",CMD, dataTh->id);
+        score_tab[dataTh->n_client] = 0;
+        printf("%s: Client %ld (%d) is ready\n",CMD, dataTh->id,dataTh->n_client);
         clients_prets++;
       }
 
     else {
       /*set client state to not ready*/
-      printf("%s: Client %ld is not ready\n",CMD, dataTh->id);
+      printf("%s: Client %ld (%d) is not ready\n",CMD, dataTh->id,dataTh->n_client);
       if (close(canal) == -1)
         erreur_IO("fermeture canal");
       dataTh->libre = VRAI;
+      printf("scoretab[0] = %d, scoretab[1] = %d\n",score_tab[0],score_tab[1]);
+      score_tab[dataTh->n_client] = -1;
+      printf("scoretab[0] = %d, scoretab[1] = %d\n",score_tab[0],score_tab[1]);
       pthread_exit(NULL);
     }
 
@@ -196,8 +209,7 @@ void *sessionClient(void *arg) {
         /*On remet le chrono à 0*/
         start_chrono = FAUX;
         stop = FAUX;
-        /*On remet le score à 0*/
-        score_tab[dataTh->n_client] = 0;
+
         /*On remet le classement à 0*/
         classement[dataTh->n_client] = 0;
         /*On remet le tableau de mots à 0*/
@@ -210,11 +222,6 @@ void *sessionClient(void *arg) {
         {
           strcpy(phrase[i],"");
         }
-        /*On remet le tableau de score à 0*/
-        for (i = 0; i < NB_CLIENT ; i++)
-        {
-          score_tab[i] = 0;
-        }     
         /*On remet le tableau le phrase_flag à FAUX*/
         phrase_flag = FAUX;
         /*On remet à 0 le chrono*/
@@ -222,7 +229,7 @@ void *sessionClient(void *arg) {
         elapsed_time = 0;
       }
   }
-
+  
   if (close(canal) == -1)
     erreur_IO("fermeture canal");
 
@@ -283,4 +290,12 @@ void generateRanking(const int scores[], int ranking[]) {
 
         ranking[i] = currentRank;
     }
+}
+
+int trouver_premier_libre(int tab[]) {
+  int i;
+  for (i = 0; i < NB_CLIENT; i++)
+    if (tab[i] == -1)
+      return i;
+  return -1;
 }

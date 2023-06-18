@@ -126,9 +126,6 @@ int main(int argc, char *argv[]) {
     else {
       /*si l'utilisateur ne veut pas rejouer n */
       fin = VRAI;
-      lg = ecrireLigne(sock, "fin\n");
-      if (lg == -1)
-        erreur_IO("ecrire ligne");
     }
     
   }
