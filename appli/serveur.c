@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
     if (ret != 0)
       erreur_IO("creation thread");
 
-    joinDataThread();
+    joinDataThread(&n_client);
   }
  
 
@@ -132,13 +132,13 @@ void *sessionClient(void *arg) {
     if (strcmp(ligne, "o") == 0)
       {
         /*set client state to ready*/
-        printf("%s: Client %d is ready\n",CMD, dataTh->n_client);
+        printf("%s: Client %ld is ready\n",CMD, dataTh->id);
         clients_prets++;
       }
 
     else {
       /*set client state to not ready*/
-      printf("%s: Client %d is not ready\n",CMD, dataTh->n_client);
+      printf("%s: Client %ld is not ready\n",CMD, dataTh->id);
       if (close(canal) == -1)
         erreur_IO("fermeture canal");
       dataTh->libre = VRAI;
