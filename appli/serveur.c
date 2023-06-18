@@ -25,6 +25,7 @@ int score_tab[NB_CLIENT_MAX];
 int classement[NB_CLIENT_MAX];
 pthread_t timer_thread_id;
 int n_client = 0;
+int nb_clients_connectes = 0;
 
 int main(int argc, char *argv[]) {
   short port;
@@ -88,6 +89,7 @@ int main(int argc, char *argv[]) {
       dataThread->spec.n_client = n_client; /*On specifie le numéro du joueur*/
       score_tab[n_client] = 0;
       n_client++;
+      nb_clients_connectes++;
       pthread_mutex_unlock(&mutex);
       
       ret = pthread_create(&dataThread->spec.id, NULL, sessionClient, /*on crée le thread avec la fonction sessionClient */
@@ -152,11 +154,11 @@ void *sessionClient(void *arg) {
     else {
       /*set client state to not ready*/
       printf("%s: Client %ld (%d) is not ready\n",CMD, dataTh->id,dataTh->n_client);
-      close_client(dataTh,1);
+      close_client(dataTh,0);
     }
 
     /*wait for all clients to be ready*/
-      while (clients_prets < n_client)
+      while (clients_prets < nb_clients_connectes)
       {
         verif_client_state(dataTh,0);
         printf("%s: Waiting for clients to be ready\n",CMD);
@@ -201,7 +203,7 @@ void *sessionClient(void *arg) {
       /*calcul classement*/
       generateRanking(score_tab,classement);
       printf("%s: annonce les résultats des clients\n",CMD);
-      sprintf(ligne, "%d/%d",classement[dataTh->n_client],n_client);
+      sprintf(ligne, "%d/%d",classement[dataTh->n_client],nb_clients_connectes);
       if (verif_client_state(dataTh,1))
         ecrireLigne(canal,ligne);
       pthread_mutex_lock(&mutex);
@@ -314,6 +316,7 @@ void close_client(DataSpec *dataTh, int in_game)
     erreur_IO("fermeture canal");
   dataTh->libre = VRAI;
   n_client--;
+  nb_clients_connectes--;
   score_tab[dataTh->n_client] = -1;
   if (in_game)
     clients_prets--;
