@@ -2,8 +2,8 @@
 #include <time.h>
 
 #define    CMD      "serveur"
-#define GAME_TIME 10
-#define NB_CLIENT 2
+#define GAME_TIME 30
+#define NB_CLIENT_MAX 5
 
 /*on déclare un mutex statique*/
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -13,6 +13,9 @@ void remiseAZeroJournal(void);
 void calcul_score(int numero_du_joueur, char mots_ecrits[TAILLE_PHRASE][TAILLE_MOT], char phrase[TAILLE_PHRASE][TAILLE_MOT], int *score_tab);
 void *timer();
 int trouver_premier_libre(int tab[]);
+int verif_client_state(DataSpec *dataTh, int in_game);
+void close_client(DataSpec *dataTh, int in_game);
+
 int fdJournal;
 int clients_prets = 0;
 char phrase[TAILLE_PHRASE][TAILLE_MOT];
@@ -20,9 +23,10 @@ int phrase_flag = FAUX;
 int start_chrono = FAUX;
 time_t start_time, elapsed_time;
 int stop = FAUX;
-int score_tab[NB_CLIENT];
-int classement[NB_CLIENT];
+int score_tab[NB_CLIENT_MAX];
+int classement[NB_CLIENT_MAX];
 pthread_t timer_thread_id;
+int n_client = 0;
 
 int main(int argc, char *argv[]) {
   short port;
@@ -30,7 +34,6 @@ int main(int argc, char *argv[]) {
   struct sockaddr_in adrEcoute, adrClient;
   unsigned int lgAdrClient;
   DataThread *dataThread;
-  int n_client = 0;
   memset(score_tab, -1, sizeof(score_tab));
   fdJournal = open("journal.log", O_WRONLY|O_CREAT|O_APPEND, 0644);
   if (fdJournal == -1)
@@ -57,43 +60,49 @@ int main(int argc, char *argv[]) {
     erreur_IO("bind");
   
   printf("%s: listening to socket\n", CMD);
-  ret = listen (ecoute, NB_CLIENT); /*liste d'attente de NB_CLIENT*/
+  ret = listen (ecoute, 5); /*liste d'attente de NB_CLIENT_MAX*/
   if (ret < 0)
     erreur_IO("listen");
+
   /*Boucle d'écoute du serveur*/
   while (VRAI) {
     printf("%s: accepting a connection\n", CMD);
     canal = accept(ecoute, (struct sockaddr *)&adrClient, &lgAdrClient);
     if (canal < 0)
       erreur_IO("accept");
-
-    printf("%s: adr %s, port %hu\n", CMD,
-	      stringIP(ntohl(adrClient.sin_addr.s_addr)), ntohs(adrClient.sin_port));
-
-    dataThread = ajouterDataThread();
-    if (dataThread == NULL)
-      erreur_IO("ajouter data thread");
-
-    dataThread->spec.canal = canal; /*on spécifie le canal pour le nouveau thread*/
-   
-    pthread_mutex_lock(&mutex);
-    printf("Je suis avat d'appeler la fonction trouver_premier_libre\n");
-    printf("score_tab[0] = %d\n",score_tab[0]);
-    printf("score_tab[1] = %d\n",score_tab[1]);
-
-    n_client = trouver_premier_libre(score_tab);
-    printf("Je viens de trouver un numéro de client pour le thread, n_client = %d\n",n_client);
-    dataThread->spec.n_client = n_client; /*On specifie le numéro du joueur*/
-    score_tab[n_client] = 0;
-    n_client++;
-    pthread_mutex_unlock(&mutex);
     
-    ret = pthread_create(&dataThread->spec.id, NULL, sessionClient, /*on crée le thread avec la fonction sessionClient */
-                          &dataThread->spec);
-    if (ret != 0)
-      erreur_IO("creation thread");
+    /*lock car utilisation variable globale*/
+    pthread_mutex_lock(&mutex);
+    if (n_client >= NB_CLIENT_MAX) {
+      printf("Nombre de clients maximum atteint\n");
+      close(canal);
+      continue;
+    }
+    else{
+      printf("%s: adr %s, port %hu\n", CMD,
+          stringIP(ntohl(adrClient.sin_addr.s_addr)), ntohs(adrClient.sin_port));
 
-    joinDataThread(&n_client);
+      dataThread = ajouterDataThread();
+      if (dataThread == NULL)
+        erreur_IO("ajouter data thread");
+
+      dataThread->spec.canal = canal; /*on spécifie le canal pour le nouveau thread*/
+    
+
+      n_client = trouver_premier_libre(score_tab);
+      printf("Je viens de trouver un numéro de client pour le thread, n_client = %d\n",n_client);
+      dataThread->spec.n_client = n_client; /*On specifie le numéro du joueur*/
+      score_tab[n_client] = 0;
+      n_client++;
+      pthread_mutex_unlock(&mutex);
+      
+      ret = pthread_create(&dataThread->spec.id, NULL, sessionClient, /*on crée le thread avec la fonction sessionClient */
+                            &dataThread->spec);
+      if (ret != 0)
+        erreur_IO("creation thread");
+
+      joinDataThread(&n_client);
+    }
   }
  
 
@@ -119,7 +128,6 @@ void *sessionClient(void *arg) {
   int i;
   char score[20];
   
-
   canal = dataTh->canal;
   printf("%s: connexion client\n",CMD);
   while (!fin) {
@@ -134,39 +142,37 @@ void *sessionClient(void *arg) {
     }
     pthread_mutex_unlock(&mutex);
 
-    ecrireLigne(canal, "serveur: Etes-vous prêts ? o/n\n");
-    lgLue = lireLigne(canal, ligne); /*on lit la réponse du client*/
+    if (verif_client_state(dataTh,0))
+      ecrireLigne(canal, "serveur: Etes-vous prêts ? o/n\n");
+    if (verif_client_state(dataTh,0))
+      lgLue = lireLigne(canal, ligne); /*on lit la réponse du client*/
     lgLue++;
     if (strcmp(ligne, "o") == 0)
       {
         /*set client state to ready*/
         score_tab[dataTh->n_client] = 0;
         printf("%s: Client %ld (%d) is ready\n",CMD, dataTh->id,dataTh->n_client);
+        pthread_mutex_lock(&mutex);
         clients_prets++;
+        pthread_mutex_unlock(&mutex);
       }
 
     else {
       /*set client state to not ready*/
       printf("%s: Client %ld (%d) is not ready\n",CMD, dataTh->id,dataTh->n_client);
-      if (close(canal) == -1)
-        erreur_IO("fermeture canal");
-      dataTh->libre = VRAI;
-      printf("scoretab[0] = %d, scoretab[1] = %d\n",score_tab[0],score_tab[1]);
-      score_tab[dataTh->n_client] = -1;
-      printf("scoretab[0] = %d, scoretab[1] = %d\n",score_tab[0],score_tab[1]);
-      pthread_exit(NULL);
+      close_client(dataTh,1);
     }
 
     /*wait for all clients to be ready*/
-      while (clients_prets < NB_CLIENT)
+      while (clients_prets < n_client)
       {
         printf("%s: Waiting for clients to be ready\n",CMD);
         printf("nb de clients prets %d\n",clients_prets);
         sleep(2);
       }
       
-      
-      ecrireLigne(canal, "start\n");
+      if (verif_client_state(dataTh,1))
+        ecrireLigne(canal, "start\n");
       
       /*On lance le thread timer*/
       pthread_mutex_lock(&mutex);
@@ -180,8 +186,9 @@ void *sessionClient(void *arg) {
 
       for (i = 0; i < 100 ; i++)
       {
-        if (!stop)
+        if (!stop && verif_client_state(dataTh,1))
         {
+        
         ecrireLigne(canal,phrase[i]);
         lgLue = lireLigne(canal,ligne);
         sprintf(formatted_ligne,"%s\n",ligne);
@@ -189,19 +196,24 @@ void *sessionClient(void *arg) {
         }
       }
       /*On arrête le chrono*/
-      ecrireLigne(canal, "stop\n");
+      if (verif_client_state(dataTh,1))
+        ecrireLigne(canal, "stop\n");
       /*on envoie le score convertit*/
       calcul_score(dataTh->n_client,mots_ecrits,phrase,score_tab);
       sprintf(score, "%d",score_tab[dataTh->n_client]);
       printf("%s: envoi du score au client n %d : %s\n",CMD,dataTh->n_client,score);
-      ecrireLigne(canal,score);
+      if (verif_client_state(dataTh,1))
+        ecrireLigne(canal,score);
 
       /*calcul classement*/
       generateRanking(score_tab,classement);
       printf("%s: annonce les résultats des clients\n",CMD);
-      sprintf(ligne, "%d",classement[dataTh->n_client]);
-      ecrireLigne(canal,ligne);
+      sprintf(ligne, "%d/%d",classement[dataTh->n_client],n_client);
+      if (verif_client_state(dataTh,1))
+        ecrireLigne(canal,ligne);
+      pthread_mutex_lock(&mutex);
       clients_prets--;
+      pthread_mutex_unlock(&mutex);
       if (clients_prets == 0)
       {
 
@@ -277,11 +289,11 @@ void calcul_score(int numero_du_joueur, char mots_ecrits[TAILLE_PHRASE][TAILLE_M
 void generateRanking(const int scores[], int ranking[]) {
     int i, j;
 
-    for (i = 0; i < NB_CLIENT; i++) {
+    for (i = 0; i < NB_CLIENT_MAX; i++) {
         int currentScore = scores[i];
         int currentRank = 1;
 
-        for (j = 0; j < NB_CLIENT; j++) {
+        for (j = 0; j < NB_CLIENT_MAX; j++) {
             if (scores[j] > currentScore) {
                 currentRank++;
             }
@@ -293,8 +305,34 @@ void generateRanking(const int scores[], int ranking[]) {
 
 int trouver_premier_libre(int tab[]) {
   int i;
-  for (i = 0; i < NB_CLIENT; i++)
+  for (i = 0; i < NB_CLIENT_MAX; i++)
     if (tab[i] == -1)
       return i;
   return -1;
+}
+
+
+int verif_client_state(DataSpec *dataTh, int in_game)
+{
+  ssize_t bytes_read;
+  char buffer[1024];
+  bytes_read = recv(dataTh->canal, buffer, sizeof(buffer), MSG_DONTWAIT);
+  if (bytes_read == 0) {
+    close_client(dataTh, in_game);
+    return 0;
+  }
+  return 1;
+}
+
+void close_client(DataSpec *dataTh, int in_game)
+{
+  printf("Le client %d s'est déconnecté.\n", dataTh->n_client);
+  if (close(dataTh->canal) == -1)
+    erreur_IO("fermeture canal");
+  dataTh->libre = VRAI;
+  n_client--;
+  score_tab[dataTh->n_client] = -1;
+  if (in_game)
+    clients_prets--;
+  pthread_exit(NULL);
 }
