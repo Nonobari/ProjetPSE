@@ -166,6 +166,7 @@ void *sessionClient(void *arg) {
     /*wait for all clients to be ready*/
       while (clients_prets < n_client)
       {
+        verif_client_state(dataTh,0);
         printf("%s: Waiting for clients to be ready\n",CMD);
         printf("nb de clients prets %d\n",clients_prets);
         sleep(2);
@@ -326,7 +327,7 @@ int verif_client_state(DataSpec *dataTh, int in_game)
 
 void close_client(DataSpec *dataTh, int in_game)
 {
-  printf("Le client %d s'est déconnecté.\n", dataTh->n_client);
+  printf("%s: Le client %d s'est déconnecté.\n", CMD,dataTh->n_client);
   if (close(dataTh->canal) == -1)
     erreur_IO("fermeture canal");
   dataTh->libre = VRAI;

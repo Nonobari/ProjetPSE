@@ -4,33 +4,37 @@ Multithreading client server
 
 ## Fonctionnement
 
-### Serveur 
+Comment utiliser notre programme:
 
-1 thread principal
-1 thread par client (serveur dynamique)
+1. Il faut compiler les modules dans le dossier `modules`:
 
--> envoie un message d'accueil aux clients lors de leurs conenxions
--> demande leur pseudo
--> check si au moins deux clients sont connectés et prêts à lancer la partie
+        cd modules
+        make
+
+2. Il faut compiler le serveur et le client dans le dossier `appli` :
+
+        cd ../appli
+        make
+
+3. Il faut lancer le serveur, dossier `appli`:
+
+        ./server <port>
+
+4. Il faut lancer le/les client, dosser `appli` :
+
+        ./client <ip> <port>
+
+## Principe du jeu
+
+- Jeu multijoueur : on peut connecter plusieurs clients au serveur (jusqu'à 10)
+- Le serveur attend que tous les clients soient prêts pour lancer la partie (appui sur la touche "o" puis "enter")
+
+## Architecture du projet
+
+Voici l'arbre du projet :
 
 
-### Client
 
-1 thread principal
-
--> accueil : demande le pseudo du joueur, l'envoi au serveur
--> entrer "p" pour indiquer au serveur que le joueur est prêt
--> attendre que le serveur lance la partie
--> entrer "q" pour quitter la partie
--> entrer "r" pour relancer une partie
--> entrer "s" pour afficher le score
--> entrer "h" pour afficher l'historique des parties
--> entrer "c" pour afficher le classement des joueurs
+### Serveur
 
 
-### To Do
-
-- améliorer le système de connexion (choix du pseudo, nouvelle partie etc)
-- améliorer le système de classement (afficher à tous les joueurs le classement général)
-- améliorer le système de points et statistiques (nombre de fautes lettre par lettre, pourcentage de justesse) et nombre de mots par minutes
-- améliorer le système de parties (choix du nombre de mots, choix du temps de partie, choix du nombre de joueurs)
