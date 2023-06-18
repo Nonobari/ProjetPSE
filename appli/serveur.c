@@ -69,9 +69,8 @@ int main(int argc, char *argv[]) {
     /*lock car utilisation variable globale*/
     pthread_mutex_lock(&mutex);
     if (n_client >= NB_CLIENT_MAX) {
-      printf("Nombre de clients maximum atteint\n");
+      printf("%s: Nombre de clients maximum atteint\n", CMD);
       close(canal);
-      continue;
     }
     else{
       printf("%s: adr %s, port %hu\n", CMD,
@@ -85,7 +84,7 @@ int main(int argc, char *argv[]) {
     
 
       n_client = trouver_premier_libre(score_tab);
-      printf("Je viens de trouver un numéro de client pour le thread, n_client = %d\n",n_client);
+      printf("%s: Je viens de trouver un numéro de client pour le thread, n_client = %d\n",CMD,n_client);
       dataThread->spec.n_client = n_client; /*On specifie le numéro du joueur*/
       score_tab[n_client] = 0;
       n_client++;
@@ -97,7 +96,7 @@ int main(int argc, char *argv[]) {
       if (ret != 0)
         erreur_IO("creation thread");
 
-      joinDataThread(&n_client);
+      joinDataThread();
     }
   }
  
@@ -162,7 +161,7 @@ void *sessionClient(void *arg) {
       {
         verif_client_state(dataTh,0);
         printf("%s: Waiting for clients to be ready\n",CMD);
-        printf("nb de clients prets %d\n",clients_prets);
+        printf("%s: Nombre de clients prets %d\n",CMD, clients_prets);
         sleep(2);
       }
       

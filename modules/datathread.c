@@ -30,13 +30,12 @@ DataThread *ajouterDataThread(void) {
   return tmp;
 }
 
-int joinDataThread(int *n_client) {
+int joinDataThread(void) {
   DataThread *cur = listeDataThread;
   int nThread = 0;
   while (cur != NULL) {
     if (cur->spec.id != 0 && cur->spec.libre == VRAI) {
       pthread_join(cur->spec.id, NULL);
-      *n_client --;
       cur->spec.id = 0;
       nThread++;
     }
