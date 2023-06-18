@@ -37,7 +37,7 @@ DataThread *ajouterDataThread();
   met la valeur 0 dans l'identifiant, pour le marquer 'a supprimer'.
   TO DO: suppression des elements 'a supprimer'
 */
-int joinDataThread(void);
+int joinDataThread(int *n_client);
 
 /*
   libere la memoire allouee

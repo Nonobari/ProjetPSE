@@ -26,8 +26,6 @@
 #include "ligne.h"
 #include "resolv.h"
 #include "datathread.h"
-#include "msgbox.h"
-#include "msg.h"
 #include "words.h"
 
 #define FAUX	0

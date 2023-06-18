@@ -1,29 +1,47 @@
 # ProjetPSE
-Multithreading client server
-
+Multiplayer Typing Game in C
 
 ## Fonctionnement
 
-### Serveur 
+Comment utiliser notre programme:
 
-1 thread principal
-1 thread par client (serveur dynamique)
+1. Il faut compiler les modules dans le dossier `modules`:
 
--> envoie un message d'accueil aux clients lors de leurs conenxions
--> demande leur pseudo
--> check si au moins deux clients sont connectés et prêts à lancer la partie
+        cd modules
+        make
 
+2. Il faut compiler le serveur et le client dans le dossier `appli` :
 
-### Client
+        cd ../appli
+        make
 
-1 thread principal
+3. Il faut lancer le serveur, dossier `appli`:
 
--> accueil : demande le pseudo du joueur, l'envoi au serveur
--> entrer "p" pour indiquer au serveur que le joueur est prêt
--> attendre que le serveur lance la partie
--> entrer "q" pour quitter la partie
--> entrer "r" pour relancer une partie
--> entrer "s" pour afficher le score
--> entrer "h" pour afficher l'historique des parties
--> entrer "c" pour afficher le classement des joueurs
+        ./server <port>
+
+4. Il faut lancer le/les client, dosser `appli` :
+
+        ./client <ip> <port>
+
+## Principe du jeu
+
+- Jeu multijoueur : on peut connecter plusieurs clients au serveur (jusqu'à 10) modifiable dans le fichier `server.c` ligne 6.
+- Le serveur attend que tous les clients soient prêts pour lancer la partie (appui sur la touche "o" puis "enter")
+- Lorsque tous les clients sont prêts, le serveur envoie un mot français aléatoire à tous les clients, le but est de taper ce mot le plus vite possible.
+A chaque fois qu'un client tape un mot, le serveur lui envoie un nouveau mot et incrémente son score de 1 point.
+- Une partie dure 30 secondes (modifiable dans le fichier `server.c` ligne 5)
+- A la fin de la partie, le serveur affiche le classement des joueurs et leur score.
+
+## Architecture du projet
+
+Voici l'arbre du projet :
+
+![arbre_project](assets/tree.png)
+
+- Le dossier **appli** contient les codes sources (.c) du serveur et des clients.
+- Le dossier **assets** contient les images utilisées pour le README.md.
+- Le dossier **include** contient les fichiers d'en-tête (.h) utilisés par le serveur et les clients et le fichier pse.h qui nous permet d'inclure toutes les librairies en une seule fois.
+- Le dossier **lib** contient les executables des modules (.a) utilisées par le serveur et les clients.
+- Le dossier **module** contient les codes sources (.c) utilisés par le serveur et les clients.
+
 
