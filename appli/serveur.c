@@ -3,7 +3,7 @@
 
 #define    CMD      "serveur"
 #define GAME_TIME 30
-#define NB_CLIENT_MAX 5
+#define NB_CLIENT_MAX 10
 
 /*on déclare un mutex statique*/
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
