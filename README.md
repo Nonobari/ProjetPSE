@@ -32,7 +32,9 @@ A chaque fois qu'un client tape un mot, le serveur lui envoie un nouveau mot et 
 - Une partie dure 30 secondes (modifiable dans le fichier `server.c` ligne 5)
 - A la fin de la partie, le serveur affiche le classement des joueurs et leur score.
 
-## Architecture du projet
+<br><br><br>
+
+## Architecture du projet
 
 Voici l'arbre du projet :
 
