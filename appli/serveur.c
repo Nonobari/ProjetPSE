@@ -9,14 +9,12 @@
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 void generateRanking(const int scores[], int ranking[]);
 void *sessionClient(void *arg);
-void remiseAZeroJournal(void);
 void calcul_score(int numero_du_joueur, char mots_ecrits[TAILLE_PHRASE][TAILLE_MOT], char phrase[TAILLE_PHRASE][TAILLE_MOT], int *score_tab);
 void *timer();
 int trouver_premier_libre(int tab[]);
 int verif_client_state(DataSpec *dataTh, int in_game);
 void close_client(DataSpec *dataTh, int in_game);
 
-int fdJournal;
 int clients_prets = 0;
 char phrase[TAILLE_PHRASE][TAILLE_MOT];
 int phrase_flag = FAUX;
@@ -35,10 +33,6 @@ int main(int argc, char *argv[]) {
   unsigned int lgAdrClient;
   DataThread *dataThread;
   memset(score_tab, -1, sizeof(score_tab));
-  fdJournal = open("journal.log", O_WRONLY|O_CREAT|O_APPEND, 0644);
-  if (fdJournal == -1)
-    erreur_IO("ouverture journal");
-  
   initDataThread();
 
   if (argc != 2)
@@ -109,8 +103,6 @@ int main(int argc, char *argv[]) {
   if (close(ecoute) == -1)
     erreur_IO("fermeture ecoute");
 
-  if (close(fdJournal) == -1)
-    erreur_IO("fermeture journal");
 
   exit(EXIT_SUCCESS);
 }
@@ -248,16 +240,6 @@ void *sessionClient(void *arg) {
   dataTh->libre = VRAI;
 
   pthread_exit(NULL);
-}
-
-/* le fichier est ferme et rouvert vide */
-void remiseAZeroJournal(void) {
-  if (close(fdJournal) == -1)
-    erreur_IO("raz journal - fermeture");
-
-  fdJournal = open("journal.log", O_WRONLY|O_TRUNC|O_APPEND, 0644);
-  if (fdJournal == -1)
-    erreur_IO("raz journal - ouverture");
 }
 
 

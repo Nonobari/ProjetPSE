@@ -1,6 +1,5 @@
 # ProjetPSE
-Multithreading client server
-
+Multiplayer Typing Game in C
 
 ## Fonctionnement
 
@@ -33,8 +32,10 @@ Comment utiliser notre programme:
 
 Voici l'arbre du projet :
 
+![arbre_project](assets/tree.png)
 
-
+- Le dossier **module** contient les codes sources (.c) utilisés par le serveur et les clients.
+- Le dossier **appli** contient les codes sources (.c) du serveur et des clients.  
 ### Serveur
 
 
